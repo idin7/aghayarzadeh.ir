@@ -86,7 +86,8 @@ html[lang=en] .hero h1{font-weight:600;letter-spacing:-.02em;line-height:1.05}
 .btn.ghost:hover{border-color:var(--gold-2);color:var(--gold-2)}
 .portrait{position:relative;aspect-ratio:4/5;max-width:400px;justify-self:center;width:100%}
 .portrait .frame{position:absolute;inset:0;border-radius:200px 200px 24px 24px;background:linear-gradient(160deg,#3db0b1,#16676b 70%);border:1px solid rgba(232,205,146,.35);overflow:hidden;display:grid;place-items:center}
-.portrait .frame img{width:100%;height:100%;object-fit:cover;object-position:center 20%}
+.portrait .frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 25%;transition:opacity 1.2s ease}
+.portrait .frame img.off{opacity:0}
 .portrait .frame::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(10,50,54,.55),transparent 40%);pointer-events:none}
 .portrait .mono{font-family:Georgia,serif;font-size:110px;color:rgba(232,205,146,.85);font-weight:600}
 .portrait .ring{position:absolute;inset:-22px;border-radius:222px 222px 40px 40px;border:1px dashed rgba(232,205,146,.3)}
@@ -808,8 +809,30 @@ $('#nlForm').addEventListener('submit', async e => {
 });
 fetch('content.json?v=' + Date.now(), {cache:'no-store'}).then(r => r.ok ? r.json() : Promise.reject()).then(c => {
   news = Array.isArray(c.news) ? c.news : []; gallery = Array.isArray(c.gallery) ? c.gallery : [];
-  newsletter.endpoint = c.newsletterEndpoint || ''; render(lang);
+  newsletter.endpoint = c.newsletterEndpoint || ''; render(lang); startHero();
 }).catch(() => {});
+
+/* ===== اسلایدشوی عکس بالای صفحه: عکس اصلی و عکس‌های گالری (از content.json) هر ۵ ثانیه عوض می‌شوند ===== */
+let heroTimer = null, HERO0 = null;
+function startHero(){
+  const frame = document.querySelector('.portrait .frame'); if (!frame) return;
+  let [a, b] = frame.querySelectorAll('img');
+  if (!HERO0) HERO0 = a.src;
+  if (!b){ b = a.cloneNode(); b.setAttribute('aria-hidden','true'); b.alt = ''; a.after(b); }
+  a.src = HERO0; a.classList.remove('off'); b.classList.add('off');
+  clearInterval(heroTimer);
+  const srcs = [HERO0, ...gallery.map(g => g.src || g.thumb).filter(Boolean)];
+  if (srcs.length < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let i = 0, front = a, back = b, busy = false;
+  heroTimer = setInterval(() => {
+    if (document.hidden || busy) return;
+    busy = true; const n = (i + 1) % srcs.length; const pre = new Image();
+    pre.onload = () => { back.src = srcs[n]; back.classList.remove('off'); front.classList.add('off'); [front, back] = [back, front]; i = n; busy = false; };
+    pre.onerror = () => { i = n; busy = false; };
+    pre.src = srcs[n];
+  }, 5000);
+}
+startHero();
 $('#burger').onclick = () => $('#links').classList.toggle('open');
 $('#links').addEventListener('click', e => { if (e.target.tagName==='A') $('#links').classList.remove('open'); });
 const nav = $('#nav');
